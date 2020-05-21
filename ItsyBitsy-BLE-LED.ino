@@ -31,24 +31,13 @@ void setup(void) {
 
   WAIT_FOR_SERIAL(5000, 115200);
 
-  Serial.printf("initializing...\n");
-
   ledService = new LEDService(NEOPIXEL_LENGTH_PX);
 
-  bool ok = ledService->begin(BLUETOOTH_CONN_MAX, DEVICE_NAME);
-  if (ok) {
-    ok = ledService->advertise();
-    if (!ok) {
-      Serial.printf("failed to initialize BLE advertising data");
-    }
-  } else {
-    Serial.printf("failed to initialized BLE library resources");
-  }
+  bool ok =
+    ledService->begin(BLUETOOTH_CONN_MAX, DEVICE_NAME) &&
+    ledService->advertise();
 
   if (!ok) { while(1) { delay(10000); } }
-
-  Serial.printf("done\n");
-
 }
 
 void loop(void) {

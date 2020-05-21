@@ -28,7 +28,7 @@
 
 #include <Arduino.h>
 
-#define PRINTF_DEBUGGING
+//#define PRINTF_DEBUGGING
 
 #ifdef PRINTF_DEBUGGING
 
@@ -53,7 +53,7 @@
 #define BLUETOOTH_CONN_MAX 3
 
 #define NEOPIXEL_DATA_PIN  5
-#define NEOPIXEL_LENGTH_PX 30
+#define NEOPIXEL_LENGTH_PX 300
 
 
 #endif // _ITSYBITSY_BLE_LED_H

@@ -156,12 +156,8 @@ void LEDService::onConnect(uint16_t connHdl) {
 
   ++_numConnections;
 
-  Serial.printf("connected: %d (%d)\n", _numConnections, _maxConnections);
-
-
-  if (_rgbCharCount->indicateEnabled(connHdl)) {
-    _rgbCharCount->indicate16(connHdl, _numPixels);
-  }
+  if (_rgbCharCount->indicateEnabled(connHdl))
+    { _rgbCharCount->indicate16(connHdl, _numPixels); }
 
   if (_numConnections < _maxConnections)
     { _bluefruit->Advertising.start(0); }
@@ -170,8 +166,6 @@ void LEDService::onConnect(uint16_t connHdl) {
 void LEDService::onDisconnect(uint16_t connHdl, uint8_t reason) {
 
   --_numConnections;
-
-  Serial.printf("disconnected: %d (%d)\n", _numConnections, _maxConnections);
 }
 
 void LEDService::onRgbCharPixelWrite(uint16_t connHdl, BLECharacteristic *chr, uint8_t *data, uint16_t len) {
