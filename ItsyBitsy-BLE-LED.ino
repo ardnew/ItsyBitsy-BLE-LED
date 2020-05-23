@@ -27,19 +27,42 @@
 
 #include "src/LEDService.h"
 
-void setup(void) {
+void setup(void)
+{
 
   WAIT_FOR_SERIAL(5000, 115200);
 
-  ledService = new LEDService(NEOPIXEL_LENGTH_PX);
+  ledService = new LEDService();
 
   bool ok =
-    ledService->begin(BLUETOOTH_CONN_MAX, DEVICE_NAME) &&
+    ledService->begin(DEVICE_NAME) &&
     ledService->advertise();
 
   if (!ok) { while(1) { delay(10000); } }
 }
 
-void loop(void) {
+void loop(void)
+{
 
+}
+
+void print(info_level_t level, const char *fmt, ...)
+{
+#ifdef PRINTF_DEBUG
+  static const char *DEBUG_LEVEL_PREFIX[ilCOUNT] = {
+    "[ ] ", "[*] ", "[!] "
+  };
+  static char buff[PRINTF_DEBUG_MAX_LEN] = { 0 };
+
+  va_list arg;
+  va_start(arg, fmt);
+  vsnprintf(buff, PRINTF_DEBUG_MAX_LEN, fmt, arg);
+  va_end(arg);
+
+  Serial.print(DEBUG_LEVEL_PREFIX[level]);
+  Serial.println(buff);
+#else
+  (void)level;
+  (void)fmt;
+#endif
 }

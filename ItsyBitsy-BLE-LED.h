@@ -28,20 +28,7 @@
 
 #include <Arduino.h>
 
-//#define PRINTF_DEBUGGING
-
-#ifdef PRINTF_DEBUGGING
-
-  #define WAIT_FOR_SERIAL(timeout, baud) \
-      while (!Serial && (millis() < (timeout))) \
-        { continue; } Serial.begin(baud);
-
-#else
-
-  #define WAIT_FOR_SERIAL(timeout, baud) \
-      /* debug code omitted */
-
-#endif
+#define PRINTF_DEBUG_MAX_LEN 256
 
 #define DEVICE_NAME  "Nitelite"
 #define DEVICE_MFG   "Adafruit Industries"
@@ -54,6 +41,33 @@
 
 #define NEOPIXEL_DATA_PIN  5
 #define NEOPIXEL_LENGTH_PX 300
+#define NEOPIXEL_TYPE      NEO_KHZ800 // in Adafruit_NeoPixel.h
+#define NEOPIXEL_ORDER     NEO_GRB    //
 
+#if PRINTF_DEBUG_MAX_LEN
+  #define PRINTF_DEBUG
+  #define WAIT_FOR_SERIAL(timeout, baud) \
+      while (!Serial && (millis() < (timeout))) \
+        { continue; } Serial.begin(baud);
+#else
+  #define WAIT_FOR_SERIAL(timeout, baud) \
+      /* debug code omitted */
+#endif
+
+typedef enum
+{
+  ilNONE = -1,
+  ilInfo,  // = 0
+  ilWarn,  // = 1
+  ilError, // = 2
+  ilCOUNT  // = 3
+}
+info_level_t;
+
+void print(info_level_t level, const char *fmt, ...);
+
+#define infof(fmt, ...) print(ilInfo, fmt, __VA_ARGS__)
+#define warnf(fmt, ...) print(ilWarn, fmt, __VA_ARGS__)
+#define errf(fmt, ...)  print(ilError, fmt, __VA_ARGS__)
 
 #endif // _ITSYBITSY_BLE_LED_H
