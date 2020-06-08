@@ -31,17 +31,19 @@ static void _onConnect(uint16_t connHdl)
   { ledService->onConnect(connHdl); }
 static void _onDisconnect(uint16_t connHdl, uint8_t reason)
   { ledService->onDisconnect(connHdl, reason); }
-static void _onRgbCharPixelWrite(uint16_t connHdl, BLECharacteristic *chr, uint8_t *data, uint16_t len)
-  { ledService->onRgbCharPixelWrite(connHdl, chr, data, len); }
+static void _onRgbCharColorWrite(uint16_t connHdl, BLECharacteristic *chr, uint8_t *data, uint16_t len)
+  { ledService->onRgbCharColorWrite(connHdl, chr, data, len); }
 static void _onRgbCharStripWrite(uint16_t connHdl, BLECharacteristic *chr, uint8_t *data, uint16_t len)
   { ledService->onRgbCharStripWrite(connHdl, chr, data, len); }
 
-RgbCharPixelData::RgbCharPixelData(
-  uint16_t const start, uint16_t const length, rgb_t const rgb)
+RgbCharColorData::RgbCharColorData(
+  uint16_t const start, uint16_t const length, rgb_t const rgb, uint8_t const alpha, uint8_t const bright)
 :
   _start(start),
   _length(length),
   _rgb(rgb),
+  _alpha(alpha),
+  _bright(bright),
   _isValid(true),
   _data((uint8_t *)malloc(size()))
 {
@@ -53,13 +55,17 @@ RgbCharPixelData::RgbCharPixelData(
   _data[5] = _rgb.red;
   _data[6] = _rgb.green;
   _data[7] = _rgb.blue;
+  _data[8] = _alpha;
+  _data[9] = _bright;
 }
 
-RgbCharPixelData::RgbCharPixelData(uint8_t * const data, uint16_t const len)
+RgbCharColorData::RgbCharColorData(uint8_t * const data, uint16_t const len)
 :
   _start(0U),
   _length(0U),
   _rgb({0U}),
+  _alpha(0U),
+  _bright(0U),
   _isValid(false),
   _data((uint8_t *)malloc(size()))
 {
@@ -71,6 +77,8 @@ RgbCharPixelData::RgbCharPixelData(uint8_t * const data, uint16_t const len)
       ((uint16_t)data[5] << 16U) |
       ((uint16_t)data[6] <<  8U) |
       ((uint16_t)data[7] <<  0U) ;
+    _alpha     = data[8];
+    _bright    = data[9];
     memcpy(_data, data, size());
     _isValid = true;
   }
@@ -134,7 +142,7 @@ LEDService::LEDService(
   _neopixel = new Adafruit_NeoPixel(_numPixels, _dataPin, _colorOrder | _pixelType);
 
   _rgbService   = new BLEService(RGB_SERVICE_UUID128);
-  _rgbCharPixel = new BLECharacteristic(RGB_SERVICE_PIXEL_CHAR_UUID128);
+  _rgbCharColor = new BLECharacteristic(RGB_SERVICE_COLOR_CHAR_UUID128);
   _rgbCharStrip = new BLECharacteristic(RGB_SERVICE_STRIP_CHAR_UUID128);
 }
 
@@ -188,16 +196,16 @@ bool LEDService::begin(
   // configure the BLE [RGB SERVICE]:[PIXEL CHARACTERISTIC] to define color of
   // pixel ranges.
 
-  _rgbCharPixel->setProperties(CHR_PROPS_READ | CHR_PROPS_WRITE | CHR_PROPS_WRITE_WO_RESP);
-  _rgbCharPixel->setPermission(SECMODE_OPEN, SECMODE_OPEN);
-  _rgbCharPixel->setFixedLen(RgbCharPixelData::size());
-  _rgbCharPixel->setWriteCallback(_onRgbCharPixelWrite);
-  if (ERROR_NONE != _rgbCharPixel->begin())
+  _rgbCharColor->setProperties(CHR_PROPS_READ | CHR_PROPS_WRITE | CHR_PROPS_WRITE_WO_RESP);
+  _rgbCharColor->setPermission(SECMODE_OPEN, SECMODE_OPEN);
+  _rgbCharColor->setFixedLen(RgbCharColorData::size());
+  _rgbCharColor->setWriteCallback(_onRgbCharColorWrite);
+  if (ERROR_NONE != _rgbCharColor->begin())
     { return false; }
 
   // ---------------------------------------------------------------------------
-  // configure the BLE [RGB SERVICE]:[COUNT CHARACTERISTIC] that broadcasts the
-  // total number of pixels connected to and supported by the system.
+  // configure the BLE [RGB SERVICE]:[STRIP CHARACTERISTIC] that broadcasts the
+  // physical properties of the strip connected to and supported by the system.
 
   _rgbCharStrip->setProperties(CHR_PROPS_READ | CHR_PROPS_WRITE | CHR_PROPS_WRITE_WO_RESP | CHR_PROPS_INDICATE);
   _rgbCharStrip->setPermission(SECMODE_OPEN, SECMODE_OPEN);
@@ -206,6 +214,7 @@ bool LEDService::begin(
   if (ERROR_NONE != _rgbCharStrip->begin())
     { return false; }
 
+  // initialize for reading by connected clients
   RgbCharStripData stripData(_numPixels, _colorOrder, _pixelType);
   _rgbCharStrip->write(stripData.data(), RgbCharStripData::size());
 
@@ -240,8 +249,10 @@ void LEDService::onConnect(uint16_t connHdl)
 {
   ++_numConnections;
 
-  if (_rgbCharStrip->indicateEnabled(connHdl))
-    { _rgbCharStrip->indicate16(connHdl, _numPixels); }
+  if (_rgbCharStrip->indicateEnabled(connHdl)) {
+    RgbCharStripData stripData(_numPixels, _colorOrder, _pixelType);
+    _rgbCharStrip->indicate(connHdl, stripData.data(), RgbCharStripData::size());
+  }
 
   if (_numConnections < _maxConnections)
     { _bluefruit->Advertising.start(0); }
@@ -252,13 +263,13 @@ void LEDService::onDisconnect(uint16_t connHdl, uint8_t reason)
   --_numConnections;
 }
 
-void LEDService::onRgbCharPixelWrite(
+void LEDService::onRgbCharColorWrite(
   uint16_t connHdl, BLECharacteristic *chr, uint8_t *data, uint16_t len)
 {
-  RgbCharPixelData pixel(data, len);
-  if (pixel.isValid()) {
+  RgbCharColorData color(data, len);
+  if (color.isValid()) {
     _neopixel->clear();
-    _neopixel->fill(_neopixel->gamma32(pixel.rgb().color));
+    _neopixel->fill(_neopixel->gamma32(color.rgb().color));
     _neopixel->show();
   }
 }
@@ -269,5 +280,24 @@ void LEDService::onRgbCharStripWrite(
   RgbCharStripData strip(data, len);
   if (strip.isValid()) {
 
+    if (strip.numPixels() != _numPixels) {
+      _numPixels = strip.numPixels();
+      _neopixel->updateLength(_numPixels);
+    }
+
+    bool shouldChangeType = false;
+
+    if (strip.colorOrder() != _colorOrder) {
+      _colorOrder = strip.colorOrder();
+      shouldChangeType = true;
+    }
+    if (strip.pixelType() != _pixelType) {
+      _pixelType = strip.pixelType();
+      shouldChangeType = true;
+    }
+
+    if (shouldChangeType) {
+      _neopixel->updateType(_colorOrder | _pixelType);
+    }
   }
 }

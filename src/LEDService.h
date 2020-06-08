@@ -44,23 +44,27 @@ typedef union rgb_t
   uint32_t color;
 };
 
-class RgbCharPixelData
+class RgbCharColorData
 {
 protected:
   uint16_t  _start;
   uint16_t  _length;
   rgb_t     _rgb;
+  uint8_t   _alpha;
+  uint8_t   _bright;
   uint8_t  *_data;
   bool      _isValid;
 
 public:
-  RgbCharPixelData(uint16_t const start, uint16_t const length, rgb_t const rgb);
-  RgbCharPixelData(uint8_t * const data, uint16_t const len);
+  RgbCharColorData(uint16_t const start, uint16_t const length, rgb_t const rgb, uint8_t const alpha, uint8_t const bright);
+  RgbCharColorData(uint8_t * const data, uint16_t const len);
 
-  static inline constexpr uint16_t size() { return sizeof(_start) + sizeof(_length) + sizeof(_rgb); }
+  static inline constexpr uint16_t size() { return sizeof(_start) + sizeof(_length) + sizeof(_rgb) + sizeof(_alpha) + sizeof(_bright); }
   inline uint16_t start() { return _start; }
   inline uint16_t length() { return _length; }
   inline rgb_t rgb() { return _rgb; }
+  inline uint8_t alpha() { return _alpha; }
+  inline uint8_t bright() { return _bright; }
   inline uint8_t *data() { return _data; }
   inline bool isValid() { return _isValid; }
 };
@@ -104,7 +108,7 @@ protected:
   Adafruit_NeoPixel *_neopixel;
 
   BLEService        *_rgbService;
-  BLECharacteristic *_rgbCharPixel;
+  BLECharacteristic *_rgbCharColor;
   BLECharacteristic *_rgbCharStrip;
 
   // convert 128-bit UUID to uint8_t[16] literal:
@@ -115,8 +119,9 @@ protected:
     { 0xcb, 0xcc, 0x4b, 0xd5, 0x7d, 0x43, 0x14, 0x9a, 0x53, 0x4e, 0x2f, 0x63, (id), 0x00, 0x1d, 0x3f, }
 
   uint8_t const RGB_SERVICE_UUID128[16]            = RGB_SERVICE_UUID128(0xc0); // 3f1d00c0-632f-4e53-9a14-437dd54bcccb
-  uint8_t const RGB_SERVICE_PIXEL_CHAR_UUID128[16] = RGB_SERVICE_UUID128(0xc1); // 3f1d00c1-632f-4e53-9a14-437dd54bcccb
-  uint8_t const RGB_SERVICE_STRIP_CHAR_UUID128[16] = RGB_SERVICE_UUID128(0xc2); // 3f1d00c2-632f-4e53-9a14-437dd54bcccb
+  uint8_t const RGB_SERVICE_STRIP_CHAR_UUID128[16] = RGB_SERVICE_UUID128(0xc1); // 3f1d00c1-632f-4e53-9a14-437dd54bcccb
+  uint8_t const RGB_SERVICE_COLOR_CHAR_UUID128[16] = RGB_SERVICE_UUID128(0xc2); // 3f1d00c2-632f-4e53-9a14-437dd54bcccb
+  uint8_t const RGB_SERVICE_ANIMA_CHAR_UUID128[16] = RGB_SERVICE_UUID128(0xc3); // 3f1d00c2-632f-4e53-9a14-437dd54bcccb
 
 public:
   LEDService(
@@ -135,7 +140,7 @@ public:
 
   void onConnect(uint16_t connHdl);
   void onDisconnect(uint16_t connHdl, uint8_t reason);
-  void onRgbCharPixelWrite(uint16_t connHdl, BLECharacteristic *chr, uint8_t *data, uint16_t len);
+  void onRgbCharColorWrite(uint16_t connHdl, BLECharacteristic *chr, uint8_t *data, uint16_t len);
   void onRgbCharStripWrite(uint16_t connHdl, BLECharacteristic *chr, uint8_t *data, uint16_t len);
 };
 
