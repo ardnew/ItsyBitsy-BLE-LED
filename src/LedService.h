@@ -28,20 +28,28 @@
 
 #include "../ItsyBitsy-BLE-LED.h"
 
-#include <Arduino.h>
-#include <bluefruit.h>
-#include <Adafruit_NeoPixel.h>
+#include "LedColor.h"
+#include "LedAnima.h"
 
-typedef union rgb_t
+class RgbCharStripData
 {
-  struct
-  {
-    uint8_t alpha;
-    uint8_t red;
-    uint8_t green;
-    uint8_t blue;
-  };
-  uint32_t color;
+protected:
+  uint16_t  _numPixels;
+  uint16_t  _colorOrder;
+  uint16_t  _pixelType;
+  uint8_t  *_data;
+  bool      _isValid;
+
+public:
+  RgbCharStripData(uint16_t const numPixels, uint16_t const colorOrder, uint16_t const pixelType);
+  RgbCharStripData(uint8_t * const data, uint16_t const len);
+
+  static inline constexpr uint16_t size() { return sizeof(_numPixels) + sizeof(_colorOrder) + sizeof(_pixelType); }
+  inline uint16_t numPixels() { return _numPixels; }
+  inline uint16_t colorOrder() { return _colorOrder; }
+  inline uint16_t pixelType() { return _pixelType; }
+  inline uint8_t *data() { return _data; }
+  inline bool isValid() { return _isValid; }
 };
 
 class RgbCharColorData
@@ -69,47 +77,59 @@ public:
   inline bool isValid() { return _isValid; }
 };
 
-class RgbCharStripData
+class RgbCharAnimaData
 {
 protected:
-  uint16_t  _numPixels;
-  uint16_t  _colorOrder;
-  uint16_t  _pixelType;
+  uint8_t   _mode;
+  uint8_t   _reverse;
+  uint8_t   _delay;
+  uint8_t  *_anima;
   uint8_t  *_data;
   bool      _isValid;
 
 public:
-  RgbCharStripData(uint16_t const numPixels, uint16_t const colorOrder, uint16_t const pixelType);
-  RgbCharStripData(uint8_t * const data, uint16_t const len);
+  RgbCharAnimaData(uint8_t const mode, uint8_t const reverse, uint8_t const delay, uint8_t * const anima, uint16_t const len);
+  RgbCharAnimaData(AnimaMode const mode, uint8_t const reverse, uint8_t const delay, uint8_t * const anima, uint16_t const len);
+  RgbCharAnimaData(uint8_t * const data, uint16_t const len);
 
-  static inline constexpr uint16_t size() { return sizeof(_numPixels) + sizeof(_colorOrder) + sizeof(_pixelType); }
-  inline uint16_t numPixels() { return _numPixels; }
-  inline uint16_t colorOrder() { return _colorOrder; }
-  inline uint16_t pixelType() { return _pixelType; }
+  static inline constexpr uint16_t fixedSize() { return sizeof(_mode) + sizeof(_reverse) + sizeof(_delay); }
+  static inline constexpr uint16_t animaSize() { return BLUETOOTH_CHAR_LEN_MAX - fixedSize(); }
+  static inline constexpr uint16_t size() { return fixedSize() + animaSize(); }
+  inline uint8_t mode() { return _mode; }
+  inline bool    reverse() { return _reverse != 0U; }
+  inline uint8_t delay() { return _delay; }
+  inline uint8_t *anima() { return _anima; }
   inline uint8_t *data() { return _data; }
   inline bool isValid() { return _isValid; }
 };
 
-class LEDService
+enum class RgbCharId { NONE, Strip, Color, Anima, COUNT };
+
+class LedService
 {
 protected:
   AdafruitBluefruit *_bluefruit;
   BLEDfu            *_bledfu;
   BLEDis            *_bledis;
 
-  uint16_t _dataPin;
-  uint16_t _numPixels;
-  uint16_t _colorOrder;
-  uint16_t _pixelType;
-  int8_t   _txPower;
-  uint8_t  _maxConnections;
-  uint8_t  _numConnections;
+  uint16_t   _dataPin;
+  uint16_t   _numPixels;
+  uint16_t   _colorOrder;
+  uint16_t   _pixelType;
+  int8_t     _txPower;
+  uint8_t    _maxConnections;
+  uint8_t    _numConnections;
+
+  RgbCharId  _lastWriteChar;
+  LedColor   _ledColor;
+  LedAnima   _ledAnima;
 
   Adafruit_NeoPixel *_neopixel;
 
   BLEService        *_rgbService;
-  BLECharacteristic *_rgbCharColor;
   BLECharacteristic *_rgbCharStrip;
+  BLECharacteristic *_rgbCharColor;
+  BLECharacteristic *_rgbCharAnima;
 
   // convert 128-bit UUID to uint8_t[16] literal:
   //   $ perl -le 'print join ", ", map { "0x$_" } reverse((shift) =~ /([a-f0-9]{2})/ig)' 3f1d00c0-632f-4e53-9a14-437dd54bcccb
@@ -124,7 +144,7 @@ protected:
   uint8_t const RGB_SERVICE_ANIMA_CHAR_UUID128[16] = RGB_SERVICE_UUID128(0xc3); // 3f1d00c2-632f-4e53-9a14-437dd54bcccb
 
 public:
-  LEDService(
+  LedService(
     uint16_t const dataPin    = NEOPIXEL_DATA_PIN,
     uint16_t const numPixels  = NEOPIXEL_LENGTH_PX,
     uint16_t const colorOrder = NEOPIXEL_ORDER,
@@ -140,10 +160,13 @@ public:
 
   void onConnect(uint16_t connHdl);
   void onDisconnect(uint16_t connHdl, uint8_t reason);
-  void onRgbCharColorWrite(uint16_t connHdl, BLECharacteristic *chr, uint8_t *data, uint16_t len);
   void onRgbCharStripWrite(uint16_t connHdl, BLECharacteristic *chr, uint8_t *data, uint16_t len);
+  void onRgbCharColorWrite(uint16_t connHdl, BLECharacteristic *chr, uint8_t *data, uint16_t len);
+  void onRgbCharAnimaWrite(uint16_t connHdl, BLECharacteristic *chr, uint8_t *data, uint16_t len);
+
+  void update(timespan_t const now);
 };
 
-extern LEDService *ledService;
+extern LedService *ledService;
 
 #endif // _LEDSERVICE_H

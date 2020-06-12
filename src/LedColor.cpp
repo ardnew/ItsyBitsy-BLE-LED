@@ -23,46 +23,51 @@
  -                                                                            -
  -----------------------------------------------------------------------------*/
 
-#include "ItsyBitsy-BLE-LED.h"
+#include "LedColor.h"
 
-#include "src/LedService.h"
-
-void setup(void)
+void LedColor::fill(Adafruit_NeoPixel * const pix)
 {
-
-  WAIT_FOR_SERIAL(5000, 115200);
-
-  ledService = new LedService();
-
-  bool ok =
-    ledService->begin(DEVICE_NAME) &&
-    ledService->advertise();
-
-  if (!ok) { while(1) { delay(10000); } }
+  pix->clear();
+  pix->fill(pix->gamma32(color().color));
+  pix->show();
 }
 
-void loop(void)
+rgb_t LedColor::nextWheel(uint8_t const pos)
 {
-  ledService->update(millis());
-}
+  uint8_t curr = 0xFF - pos;
 
-void print(info_level_t level, const char *fmt, ...)
-{
-#ifdef PRINTF_DEBUG
-  static const char *DEBUG_LEVEL_PREFIX[ilCOUNT] = {
-    "[ ] ", "[*] ", "[!] "
-  };
-  static char buff[PRINTF_DEBUG_MAX_LEN] = { 0 };
+  if (curr < 0x55) {
+    setColor({
+      .u32 = {
+        .blue  = 0x00,
+        .green = 0xFF - curr * 0x03,
+        .red   = 0x03 * curr,
+        .alpha = 0xFF,
+      },
+    });
+  }
+  else if (curr < 0xAA) {
+    curr -= 0x55;
+    setColor({
+      .u32 = {
+        .blue  = 0x03 * curr,
+        .green = 0x00,
+        .red   = 0xFF - curr * 0x03,
+        .alpha = 0xFF,
+      },
+    });
+  }
+  else {
+    curr -= 0xAA;
+    setColor({
+      .u32 = {
+        .blue  = 0xFF - curr * 0x03,
+        .green = 0x03 * curr,
+        .red   = 0x00,
+        .alpha = 0xFF,
+      },
+    });
+  }
 
-  va_list arg;
-  va_start(arg, fmt);
-  vsnprintf(buff, PRINTF_DEBUG_MAX_LEN, fmt, arg);
-  va_end(arg);
-
-  Serial.print(DEBUG_LEVEL_PREFIX[level]);
-  Serial.println(buff);
-#else
-  (void)level;
-  (void)fmt;
-#endif
+  return color();
 }

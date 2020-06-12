@@ -27,8 +27,10 @@
 #define _ITSYBITSY_BLE_LED_H
 
 #include <Arduino.h>
+#include <bluefruit.h>
+#include <Adafruit_NeoPixel.h>
 
-#define PRINTF_DEBUG_MAX_LEN 256
+#define PRINTF_DEBUG_MAX_LEN 256 // undef or 0 to disable debug printing
 
 #define DEVICE_NAME  "Nitelite"
 #define DEVICE_MFG   "Adafruit Industries"
@@ -36,11 +38,12 @@
 
 // nRF52840 supported Tx power settings (dBm):
 //   -40 -20 -16 -12 -8 -4 0 +2 +3 +4 +5 +6 +7 +8
-#define BLUETOOTH_TX_POWER 4
-#define BLUETOOTH_CONN_MAX 3
+#define BLUETOOTH_TX_POWER     4
+#define BLUETOOTH_CONN_MAX     3
+#define BLUETOOTH_CHAR_LEN_MAX 20 // max size of characteristic
 
 #define NEOPIXEL_DATA_PIN  5
-#define NEOPIXEL_LENGTH_PX 300
+#define NEOPIXEL_LENGTH_PX 30
 #define NEOPIXEL_TYPE      NEO_KHZ800 // in Adafruit_NeoPixel.h
 #define NEOPIXEL_ORDER     NEO_GRB    //
 
@@ -53,6 +56,8 @@
   #define WAIT_FOR_SERIAL(timeout, baud) \
       /* debug code omitted */
 #endif
+
+typedef unsigned long timespan_t; // storage for arduino's millis()
 
 typedef enum
 {

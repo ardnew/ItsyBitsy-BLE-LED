@@ -23,46 +23,63 @@
  -                                                                            -
  -----------------------------------------------------------------------------*/
 
-#include "ItsyBitsy-BLE-LED.h"
+#ifndef _LEDANIMA_H
+#define _LEDANIMA_H
 
-#include "src/LedService.h"
+#include "../ItsyBitsy-BLE-LED.h"
 
-void setup(void)
+#include "LedColor.h"
+
+enum class AnimaMode: uint8_t
 {
+  NONE,   // = 0
+  Wheel,  // = 1
+  Chase,  // = 2
+  Scan,   // = 3
+  Fade,   // = 4
+  COUNT   // = 5
+};
 
-  WAIT_FOR_SERIAL(5000, 115200);
-
-  ledService = new LedService();
-
-  bool ok =
-    ledService->begin(DEVICE_NAME) &&
-    ledService->advertise();
-
-  if (!ok) { while(1) { delay(10000); } }
-}
-
-void loop(void)
+class LedAnima
 {
-  ledService->update(millis());
-}
+protected:
+  AnimaMode   _mode;
+  bool        _reverse;
+  uint16_t    _frame;
+  uint8_t     _speed;
+  uint8_t     _length;
+  rgb_t       _color1;
+  rgb_t       _color2;
+  uint8_t     _delay;
+  uint16_t    _numPixels;
+  timespan_t  _lastUpdate;
+  LedColor   *_ledColor;
 
-void print(info_level_t level, const char *fmt, ...)
-{
-#ifdef PRINTF_DEBUG
-  static const char *DEBUG_LEVEL_PREFIX[ilCOUNT] = {
-    "[ ] ", "[*] ", "[!] "
-  };
-  static char buff[PRINTF_DEBUG_MAX_LEN] = { 0 };
+public:
+  LedAnima(uint16_t const numPixels): LedAnima(AnimaMode::NONE, false, 5U, numPixels) { }
+  LedAnima(AnimaMode const mode, bool const reverse, uint8_t const delay, uint16_t const numPixels);
 
-  va_list arg;
-  va_start(arg, fmt);
-  vsnprintf(buff, PRINTF_DEBUG_MAX_LEN, fmt, arg);
-  va_end(arg);
+  static inline AnimaMode mode(uint8_t ord)
+  {
+    return (( ord >= (uint8_t)AnimaMode::NONE  )&&
+            ( ord <  (uint8_t)AnimaMode::COUNT ))
+      ? (AnimaMode)ord
+      : AnimaMode::NONE;
+  }
 
-  Serial.print(DEBUG_LEVEL_PREFIX[level]);
-  Serial.println(buff);
-#else
-  (void)level;
-  (void)fmt;
-#endif
-}
+  static inline uint8_t ordinal(AnimaMode mode)
+    { return (uint8_t)mode; }
+
+  AnimaMode mode() { return _mode; }
+  bool reverse() { return _reverse; }
+  uint8_t delay() { return _delay; }
+
+  void setNumPixels(uint16_t const numPixels);
+  void setMode(AnimaMode const mode, bool const reverse, uint8_t const delay, uint8_t *anima);
+  void setMode(uint8_t const mode, bool const reverse, uint8_t const delay, uint8_t *anima)
+    { setMode(LedAnima::mode(mode), reverse, delay, anima); }
+
+  void update(Adafruit_NeoPixel * const pix, timespan_t const now);
+};
+
+#endif // _LEDANIMA_H
